@@ -65,6 +65,7 @@ func main() {
 		log.Printf("  Rewrite file: %s", cfg.RewriteFile)
 	}
 	log.Printf("  Refresh interval: %d seconds", cfg.RefreshInterval)
+	log.Printf("  Subdomain order: sub-first=%t", cfg.SubFirst)
 
 	// Generate Corefile
 	generator, err := template.NewGenerator()
@@ -172,6 +173,7 @@ Environment Variables:
   TS_FORWARD_TO        Forward server for unresolved queries (default: /etc/resolv.conf)
   TS_EPHEMERAL         Enable ephemeral mode (default: true)
   TSC_REFRESH_INTERVAL Refresh interval in seconds (default: 30)
+  TSC_SUB_FIRST        Subdomain-tag ordering: true=svc.host.domain, false=host.svc.domain (default: true)
 
 `, os.Args[0])
 }

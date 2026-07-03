@@ -34,6 +34,10 @@ type Config struct {
 
 	// Additional configuration
 	AdditionalConfig string
+
+	// DNS format: when true, subdomain tags produce svc.host.domain
+	// instead of the upstream default host.svc.domain
+	SubFirst bool
 }
 
 // LoadFromEnv loads configuration from environment variables
@@ -121,6 +125,14 @@ func LoadFromEnv() (*Config, error) {
 
 	// Optional: Additional configuration
 	config.AdditionalConfig = os.Getenv("TS_ADDITIONAL_CONFIG")
+
+	// Optional: subdomain-tag ordering; default true (svc.host.domain)
+	subFirstStr := os.Getenv("TSC_SUB_FIRST")
+	if subFirstStr == "" {
+		config.SubFirst = true
+	} else {
+		config.SubFirst = strings.ToLower(subFirstStr) == "true"
+	}
 
 	return config, nil
 }

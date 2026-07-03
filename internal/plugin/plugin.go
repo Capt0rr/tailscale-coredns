@@ -34,18 +34,29 @@ type Tailscale struct {
 	lc      *tailscale.LocalClient
 	api     *api.Client
 	// Split DNS management
-	enableSplitDNS   bool
-	splitDNSDomains  []string // Changed from splitDNSDomain to splitDNSDomains
-	ownIP            string
-	lastVerifiedIP   string
+	enableSplitDNS    bool
+	splitDNSDomains   []string // Changed from splitDNSDomain to splitDNSDomains
+	ownIP             string
+	lastVerifiedIP    string
 	lastSplitDNSCheck time.Time
+	// subFirst controls subdomain-tag FQDN ordering:
+	// true  → svc.host.domain (default in this fork)
+	// false → host.svc.domain (upstream default)
+	subFirst bool
 }
 
 func New(domains []string) (*Tailscale, error) {
+	// Default subFirst to true; TSC_SUB_FIRST=false restores upstream order.
+	subFirst := true
+	if v := os.Getenv("TSC_SUB_FIRST"); v != "" {
+		subFirst = strings.ToLower(v) == "true"
+	}
+
 	ts := &Tailscale{
-		Domains: domains,
-		records: make(map[string]record),
-		lc:      &tailscale.LocalClient{Socket: "/run/tailscale/tailscaled.sock"},
+		Domains:  domains,
+		records:  make(map[string]record),
+		lc:       &tailscale.LocalClient{Socket: "/run/tailscale/tailscaled.sock"},
+		subFirst: subFirst,
 	}
 
 	// Initialize split DNS if enabled
@@ -329,7 +340,14 @@ func (t *Tailscale) processNodeForDomain(records map[string]record, peer *ipnsta
 			if strings.HasPrefix(tag, "tag:subdomain-") {
 				sub := strings.TrimPrefix(tag, "tag:subdomain-")
 				sub = strings.ReplaceAll(sub, "-", ".")
-				subFqdn := host + "." + sub + "." + domain + "."
+				var subFqdn string
+				if t.subFirst {
+					// svc.host.domain — service label before host
+					subFqdn = sub + "." + host + "." + domain + "."
+				} else {
+					// host.svc.domain — upstream default
+					subFqdn = host + "." + sub + "." + domain + "."
+				}
 				records[subFqdn] = t.ipsToRecord(peer.TailscaleIPs)
 			}
 		}
