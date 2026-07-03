@@ -2,6 +2,24 @@
 
 This project provides a high-availability Go service that integrates a CoreDNS plugin for resolving DNS names to Tailscale IPs, using tags for nested subdomains. The service includes automatic process management, graceful shutdown, and split DNS functionality for HA deployments.
 
+## Fork changes
+
+This is a fork of [christian-deleon/tailscale-coredns](https://github.com/christian-deleon/tailscale-coredns).
+It contains **one change** from upstream: the `TSC_SUB_FIRST` environment variable.
+
+By default (and in upstream), subdomain tags produce FQDNs in `host.svc.domain` order.
+This fork flips the default to `svc.host.domain`, which is more natural for service discovery
+(the service label is the first label you look up, not the machine name).
+
+| Variable | Default | Behaviour |
+|---|---|---|
+| `TSC_SUB_FIRST=true` | **default** | `svc.host.domain` — service label first |
+| `TSC_SUB_FIRST=false` | | `host.svc.domain` — upstream order |
+
+Example: a node `mybox` tagged `tag:subdomain-web` with domain `example.com`:
+- `TSC_SUB_FIRST=true`  → `web.mybox.example.com`
+- `TSC_SUB_FIRST=false` → `mybox.web.example.com`
+
 ## Features
 
 - **High Availability**: Full Go service with automatic process management and graceful shutdown
@@ -206,6 +224,7 @@ The plugin supports optional split DNS management for high availability deployme
 - `TS_FORWARD_TO` (optional): Forward server for unresolved queries (default: /etc/resolv.conf)
 - `TS_EPHEMERAL` (optional): Enable ephemeral mode for Tailscale (default: true). When set to true, the node will be automatically removed when it goes offline and the service will logout on shutdown
 - `TSC_REFRESH_INTERVAL` (optional): Refresh interval in seconds (default: 30)
+- `TSC_SUB_FIRST` (optional): Subdomain-tag FQDN ordering — `true` = `svc.host.domain`, `false` = `host.svc.domain` (default: true; see [Fork changes](#fork-changes))
 
 ### Split DNS Configuration
 
@@ -330,7 +349,7 @@ dig hostname.subdomain.mydomain.com @localhost
 Devices can be tagged in Tailscale to create custom subdomains:
 
 1. Tag a device with `tag:subdomain-web-server` in Tailscale
-2. The device will be resolvable at `hostname.web.server.mydomain.com`
+2. The device will be resolvable at `web.server.hostname.mydomain.com` (with `TSC_SUB_FIRST=true`, the default in this fork)
 
 Tags are converted from hyphens to dots to create the subdomain hierarchy.
 
