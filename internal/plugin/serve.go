@@ -48,7 +48,14 @@ func (t *Tailscale) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.M
 		m.Answer = append(m.Answer, &dns.A{Hdr: header, A: rec.IPv4})
 	case dns.TypeAAAA:
 		if rec.IPv6 == nil {
-			return plugin.NextOrFailure(t.Name(), t.Next, ctx, w, r)
+			// No IPv6 address — return NODATA (empty ANSWER, NOERROR) rather than
+			// falling through to NextOrFailure which yields SERVFAIL. Clients
+			// interpret NODATA as "no IPv6, try A" and resolve correctly.
+			m.Answer = []dns.RR{}
+			if err := w.WriteMsg(m); err != nil {
+				return dns.RcodeServerFailure, err
+			}
+			return dns.RcodeSuccess, nil
 		}
 		m.Answer = append(m.Answer, &dns.AAAA{Hdr: header, AAAA: rec.IPv6})
 	default:
